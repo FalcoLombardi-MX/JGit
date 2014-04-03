@@ -18,6 +18,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.core.env.Environment;
 import org.springframework.stereotype.Service;
+import org.springframework.util.MultiValueMap;
 
 import javax.annotation.PostConstruct;
 import java.io.File;
@@ -46,6 +47,8 @@ public class JGit {
 
     @Autowired
     GitConfig gitConfig;
+
+    private int MAX_COMMITS_PER_DAY = 4;
 
     public static void sourceGit() throws GitAPIException, IOException {
 
@@ -95,18 +98,20 @@ public class JGit {
 
         destinationGit.push().setCredentialsProvider(cp).call();
 
-        System.out.println("Pushed");
+        log.info("Pushed");
     }
 
     @PostConstruct
     public void gitReset() throws IOException, GitAPIException, CheckoutConflictException, URISyntaxException {
 
-        File fdestinationRepoPath = new File(gitConfig.getSourceDir());
-        Git git = Git.open(fdestinationRepoPath);
+        File fSourceRepoPath = new File(gitConfig.getSourceDir().concat("/.git"));
+        Git git = Git.open(fSourceRepoPath);
 
         Iterable<RevCommit> revCommits =  git.log().all().call();
 
         List<RevCommit> result = new ArrayList<>();
+        List<Integer> ommitedCommits = new ArrayList<>();
+        HashMap<String,Integer> tempCommits = new LinkedHashMap<>();
         revCommits.iterator().forEachRemaining(result::add);
         Collections.reverse(result);
 
@@ -118,7 +123,23 @@ public class JGit {
                 gitCredentials.getPassword()
         );
 
-        for (RevCommit c :result) {
+
+        for (int i = 0; i < result.size(); i++) {
+            String sCommitDate = result.get(i).getCommitterIdent().getWhen().toString();
+
+            if(!tempCommits.containsKey(sCommitDate)) {
+                tempCommits.put(sCommitDate,1);
+            }
+            else {
+                tempCommits.put(sCommitDate,(tempCommits.get(sCommitDate) + 1));
+            }
+
+            if (tempCommits.get(sCommitDate) > MAX_COMMITS_PER_DAY) {
+                ommitedCommits.add(i);
+            }
+        }
+
+        DO_COMMIT: for (RevCommit c :result) {
 
             String shaCommitID = c.getName();
             Date commitDate = c.getCommitterIdent().getWhen();
@@ -130,19 +151,24 @@ public class JGit {
                     commitMessage
             );
 
+            if (ommitedCommits.contains(commitCounter)) {
+                log.info("Commit ommited by user: {}",shaCommitID);
+                continue DO_COMMIT;
+            }
+
             Ref ref = git.reset()
                     .setMode(ResetCommand.ResetType.HARD)
                     .setRef(shaCommitID)
                     .call();
 
             log.info("Copy directories -> \nSource: {} \nDestinarion: {}",
-                    gitConfig.getCopySourceDir(),
-                    gitConfig.getCopyDestinationDir()
+                    gitConfig.getSourceDir(),
+                    gitConfig.getDestinationDir()
             );
 
             FileUtils.copyDirectory(
-                new File(gitConfig.getCopySourceDir()),
-                new File(gitConfig.getCopyDestinationDir()),
+                new File(gitConfig.getSourceDir()),
+                new File(gitConfig.getDestinationDir()),
                 getFileFilter(),
                 true
             );
@@ -155,7 +181,6 @@ public class JGit {
                 commitMessage,
                 cp
             );
-
             //break;
             commitCounter++;
         }
@@ -164,7 +189,7 @@ public class JGit {
 
     public void gitPush(Git git, Date commitDate, String commitMessage, CredentialsProvider credentialsProvider) throws GitAPIException {
 
-        log.info("Trying to pushing with token: {}", gitCredentials.getToken());
+        log.info("Trying to pushing ");
 
         PersonIdent defaultCommitter = new PersonIdent(git.getRepository());
         PersonIdent committer = new PersonIdent(defaultCommitter, commitDate);
@@ -176,10 +201,12 @@ public class JGit {
             .setCommitter(committer)
             .call();
 
-        git.push()
+        log.info("Commited...");
+
+        /*git.push()
             .setRemote(gitCredentials.getUrl())
             .setCredentialsProvider(credentialsProvider)
-            .call();
+            .call();*/
 
         log.info("Pushed...");
     }

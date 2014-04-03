@@ -15,11 +15,5 @@ public class GitConfig {
 
     @Value("${git.config.source.dir}")
     private String sourceDir;
-
-    @Value("${copy.source.dir}")
-    private String copySourceDir;
-
-    @Value("${copy.destination.dir}")
-    private String copyDestinationDir;
 }
 
