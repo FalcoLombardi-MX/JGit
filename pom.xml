@@ -3,12 +3,12 @@
          xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
     <modelVersion>4.0.0</modelVersion>
 
-    <groupId>com.mx.spring.boot</groupId>
-    <artifactId>spring-boot-template</artifactId>
+    <groupId>com.mx.jgit</groupId>
+    <artifactId>JGit</artifactId>
     <version>1.0</version>
     <packaging>jar</packaging>
 
-    <name>ibm-queue-suscriber</name>
+    <name>JGit</name>
     <url>http://maven.apache.org</url>
 
     <properties>
@@ -41,9 +41,14 @@
             <artifactId>spring-boot-starter-test</artifactId>
             <scope>test</scope>
         </dependency>
+        <dependency>
+            <groupId>org.eclipse.jgit</groupId>
+            <artifactId>org.eclipse.jgit</artifactId>
+            <version>5.7.0.202003110725-r</version>
+        </dependency>
     </dependencies>
     <build>
-        <finalName>spring-boot-template</finalName>
+        <finalName>JGit</finalName>
         <plugins>
             <plugin>
                 <groupId>org.springframework.boot</groupId>
