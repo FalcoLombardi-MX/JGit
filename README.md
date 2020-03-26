@@ -1,2 +1,2 @@
-# spring-boot-template
-Personal spring-boot template project
+# JGit Project
+JGit project to push projects with custom dates

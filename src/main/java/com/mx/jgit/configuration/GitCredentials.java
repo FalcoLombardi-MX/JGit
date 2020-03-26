@@ -17,3 +17,4 @@ public class GitCredentials {
     @Value("${git.password}")
     private String password;
 }
+
