@@ -16,5 +16,11 @@ public class GitCredentials {
 
     @Value("${git.password}")
     private String password;
+
+    @Value("${git.token}")
+    private String token;
+
+    @Value("${git.url}")
+    private String url;
 }
 

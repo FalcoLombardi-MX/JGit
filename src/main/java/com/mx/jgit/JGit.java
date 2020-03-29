@@ -5,6 +5,7 @@ import com.mx.jgit.configuration.GitCredentials;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.io.FileUtils;
 import org.eclipse.jgit.api.Git;
+import org.eclipse.jgit.api.PushCommand;
 import org.eclipse.jgit.api.ResetCommand;
 import org.eclipse.jgit.api.errors.CheckoutConflictException;
 import org.eclipse.jgit.api.errors.GitAPIException;
@@ -22,12 +23,19 @@ import javax.annotation.PostConstruct;
 import java.io.File;
 import java.io.FileFilter;
 import java.io.IOException;
+import java.net.URI;
+import java.net.URISyntaxException;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.Paths;
 import java.text.DateFormat;
 import java.text.ParseException;
 import java.text.SimpleDateFormat;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.*;
+
+import static java.nio.file.StandardCopyOption.REPLACE_EXISTING;
 
 @Service
 @Slf4j
@@ -87,11 +95,11 @@ public class JGit {
 
         destinationGit.push().setCredentialsProvider(cp).call();
 
-        System.out.println("pushed");
+        System.out.println("Pushed");
     }
 
     @PostConstruct
-    public void gitReset() throws IOException, GitAPIException, CheckoutConflictException {
+    public void gitReset() throws IOException, GitAPIException, CheckoutConflictException, URISyntaxException {
 
         File fdestinationRepoPath = new File(gitConfig.getSourceDir());
         Git git = Git.open(fdestinationRepoPath);
@@ -102,13 +110,35 @@ public class JGit {
         revCommits.iterator().forEachRemaining(result::add);
         Collections.reverse(result);
 
+        log.info("Commits size: {} ", result.size());
+        int commitCounter = 1;
+
+        CredentialsProvider cp = new UsernamePasswordCredentialsProvider(
+                gitCredentials.getUsername(),
+                gitCredentials.getPassword()
+        );
+
         for (RevCommit c :result) {
 
             String shaCommitID = c.getName();
             Date commitDate = c.getCommitterIdent().getWhen();
+            String commitMessage = c.getFullMessage();
 
-            log.info("Trying to reset to: {}, {}", shaCommitID, commitDate.toString());
-            Ref ref = git.reset().setMode(ResetCommand.ResetType.HARD).setRef(shaCommitID).call();
+            log.info("Trying to reset to: {}, {}, {}",
+                    shaCommitID,
+                    commitDate.toString(),
+                    commitMessage
+            );
+
+            Ref ref = git.reset()
+                    .setMode(ResetCommand.ResetType.HARD)
+                    .setRef(shaCommitID)
+                    .call();
+
+            log.info("Copy directories -> \nSource: {} \nDestinarion: {}",
+                    gitConfig.getCopySourceDir(),
+                    gitConfig.getCopyDestinationDir()
+            );
 
             FileUtils.copyDirectory(
                 new File(gitConfig.getCopySourceDir()),
@@ -116,22 +146,53 @@ public class JGit {
                 getFileFilter(),
                 true
             );
-            System.out.println("Folder copy DONE!");
 
-            break;
+            log.info("Folder copy DONE! {}", commitCounter);
+
+            gitPush(
+                Git.open(new File(gitConfig.getDestinationDir())),
+                commitDate,
+                commitMessage,
+                cp
+            );
+
+            //break;
+            commitCounter++;
         }
+        log.info("Total of commits: {}", commitCounter-1);
+    }
+
+    public void gitPush(Git git, Date commitDate, String commitMessage, CredentialsProvider credentialsProvider) throws GitAPIException {
+
+        log.info("Trying to pushing with token: {}", gitCredentials.getToken());
+
+        PersonIdent defaultCommitter = new PersonIdent(git.getRepository());
+        PersonIdent committer = new PersonIdent(defaultCommitter, commitDate);
+
+        git.add().addFilepattern(".").call();
+
+        git.commit()
+            .setMessage(commitMessage)
+            .setCommitter(committer)
+            .call();
+
+        git.push()
+            .setRemote(gitCredentials.getUrl())
+            .setCredentialsProvider(credentialsProvider)
+            .call();
+
+        log.info("Pushed...");
     }
 
     public FileFilter getFileFilter() {
         return new FileFilter() {
             public boolean accept(File file) {
-                if (file.getName().endsWith(".git")) {
+                if (!file.getName().equals(".git")) {
                     return true;
                 }
                 return false;
             }
         };
     }
-
 }
 
