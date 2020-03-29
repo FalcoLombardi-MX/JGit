@@ -46,6 +46,11 @@
             <artifactId>org.eclipse.jgit</artifactId>
             <version>5.7.0.202003110725-r</version>
         </dependency>
+        <dependency>
+            <groupId>commons-io</groupId>
+            <artifactId>commons-io</artifactId>
+            <version>2.6</version>
+        </dependency>
     </dependencies>
     <build>
         <finalName>JGit</finalName>
