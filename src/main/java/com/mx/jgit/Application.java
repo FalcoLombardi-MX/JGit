@@ -15,9 +15,6 @@ import java.io.IOException;
 @ComponentScan
 public class Application {
 
-    @Autowired
-    static JGit jGit;
-
     public static void main(String[] args) throws GitAPIException, IOException {
 
         SpringApplication.run(Application.class, args);
